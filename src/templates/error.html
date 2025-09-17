@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Go Link Not Found{% endblock %}
+
+{% block max_width %}600px{% endblock %}
+{% block margin %}100px auto{% endblock %}
+{% block body_styles %}text-align: center;{% endblock %}
+
+{% block h1_color %}#dc3545{% endblock %}
+{% block h1_styles %}{% endblock %}
+
+{% block extra_styles %}
+    .error-message {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        padding: 20px;
+        margin: 20px 0;
+    }
+    .shortcut {
+        font-family: monospace;
+        font-weight: bold;
+    }
+    .suggestions {
+        margin-top: 30px;
+        text-align: left;
+    }
+    a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
+{% endblock %}
+
+{% block content %}
+    <h1>404 - Go Link Not Found</h1>
+    <div class="error-message">
+        <p>The shortcut <span class="shortcut">go/{{ path }}</span> does not exist.</p>
+    </div>
+
+    {% if config %}
+        <div class="suggestions">
+            <h3>Available shortcuts:</h3>
+            <ul>
+                {% for shortcut in suggestions %}
+                    <li><a href="/{{ shortcut }}">go/{{ shortcut }}</a></li>
+                {% endfor %}
+                {% if remaining_count > 0 %}
+                    <li><a href="/">... and {{ remaining_count }} more</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <p><a href="/">← View all links</a></p>
+{% endblock %}

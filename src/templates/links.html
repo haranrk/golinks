@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Go Links{% endblock %}
+
+{% block extra_styles %}
+    .links-container {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .link-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px;
+        border-bottom: 1px solid #eee;
+    }
+    .link-item:last-child {
+        border-bottom: none;
+    }
+    .link-item:hover {
+        background: #f8f9fa;
+    }
+    .shortcut {
+        font-weight: bold;
+        color: #007bff;
+        text-decoration: none;
+        font-family: monospace;
+        font-size: 14px;
+    }
+    .destination {
+        color: #6c757d;
+        font-size: 13px;
+        word-break: break-all;
+    }
+    .empty {
+        text-align: center;
+        color: #6c757d;
+        padding: 40px;
+    }
+{% endblock %}
+
+{% block content %}
+    <h1>Available Go Links</h1>
+    <div class="links-container">
+        {% if config %}
+            {% for shortcut, destination in config|dictsort %}
+                <div class="link-item">
+                    <a href="/{{ shortcut }}" class="shortcut">go/{{ shortcut }}</a>
+                    <span class="destination">→ {{ destination }}</span>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty">
+                <p>No links configured yet.</p>
+                <p>Add links to your config file to get started.</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

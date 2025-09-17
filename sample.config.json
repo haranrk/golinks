@@ -1,0 +1,14 @@
+{
+  "github": "https://github.com",
+  "mail": "https://gmail.com",
+  "calendar": "https://calendar.google.com",
+  "docs": "https://docs.google.com",
+  "drive": "https://drive.google.com",
+  "repo": {
+    "template_url": "https://github.com/{1}/{2}",
+    "defaults": {
+      "1": "haranrk",
+      "2": "golinks"
+    }
+  }
+}

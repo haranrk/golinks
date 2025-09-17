@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[project]
+name = "golinks"
+version = "1.0.0"
+description = "A local go links redirect service for URL shortcuts"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }  # Add your preferred license
+authors = [
+    { name = "Haran Rajkumar", email = "haranrajkumar97@gmail.com" },
+]
+keywords = ["golinks", "url-shortener", "redirect", "shortcuts"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "jinja2>=3.1.6",
+    "pydantic>=2.11.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/golinks"
+Repository = "https://github.com/yourusername/golinks.git"
+Issues = "https://github.com/yourusername/golinks/issues"
+
+[project.scripts]
+golinks = "src.server:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.13.0",
+]
+
+
+
+[tool.pyright]
+reportUnusedCallResult = false
+typeCheckingMode = "standard"
