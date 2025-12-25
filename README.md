@@ -22,6 +22,12 @@ cd golinks
 vim ~/.config/golinks/config.json
 ```
 
+## Update
+
+```bash
+uv tool upgrade golinks
+```
+
 ## How it works
 
 The `./install` script does the following:
@@ -78,3 +84,12 @@ Query parameters are automatically forwarded to the destination:
 ```
 - `go/search?q=golang&num=10` → `https://google.com/search?q=golang&num=10`
 
+## Troubleshooting
+
+If `go/` links stop working, restart the service:
+
+```bash
+golinks start-service
+```
+
+This will recreate the LaunchAgent and reload the service.
