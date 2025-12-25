@@ -19,12 +19,23 @@ from src.models import GoLinksConfig, LinkTemplate
 class GoLinksHandler(BaseHTTPRequestHandler):
     """HTTP request handler for go links."""
 
-    def __init__(self, *args, config_path=None, **kwargs):
-        self.config_path = config_path or Path.home() / ".golinks" / "config.json"
+    def __init__(self, *args, config_path: Path = Path.home() / ".golinks" / "config.json", **kwargs):
+        self.config_path = config_path
         # Set up Jinja2 template environment
         template_dir = Path(__file__).parent / "templates"
         self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
         super().__init__(*args, **kwargs)
+
+    def get_config_path_display(self) -> str:
+        """Get the config path as a string for display."""
+        return str(self.config_path.absolute())
+        # try:
+        #     if self.config_path is None:
+        #         return "Not configured"
+        #     # Use absolute() instead of resolve() - resolve() can fail if file doesn't exist
+        #     return str(Path(self.config_path).absolute())
+        # except Exception:
+        #     return str(self.config_path) if self.config_path else "Unknown"
 
     @property
     def config(self):
@@ -113,7 +124,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         template = self.jinja_env.get_template("links.html")
-        html = template.render(config=config, config_path=str(self.config_path.resolve()))
+        html = template.render(config=config, config_path=self.get_config_path_display())
         self.wfile.write(html.encode())
 
     def resolve_placeholders(
@@ -189,7 +200,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         html = template.render(
             error_type=error_type,
             error_message=error_message,
-            config_path=str(self.config_path.resolve()),
+            config_path=self.get_config_path_display(),
         )
         self.wfile.write(html.encode())
 
