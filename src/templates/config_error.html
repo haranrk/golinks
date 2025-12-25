@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration Error{% endblock %}
+
+{% block max_width %}700px{% endblock %}
+{% block margin %}100px auto{% endblock %}
+{% block body_styles %}text-align: center;{% endblock %}
+
+{% block h1_color %}#dc3545{% endblock %}
+{% block h1_styles %}{% endblock %}
+
+{% block extra_styles %}
+    .error-box {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        padding: 20px;
+        margin: 20px 0;
+        text-align: left;
+    }
+    .error-type {
+        font-weight: bold;
+        color: #721c24;
+        margin-bottom: 10px;
+    }
+    .error-message {
+        font-family: monospace;
+        background: #fff;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .config-path {
+        font-family: monospace;
+        color: #666;
+        font-size: 0.9em;
+        margin-top: 20px;
+    }
+    .help-section {
+        text-align: left;
+        margin-top: 30px;
+        padding: 20px;
+        background: #e7f3ff;
+        border-radius: 4px;
+    }
+    .help-section h3 {
+        margin-top: 0;
+        color: #0056b3;
+    }
+    pre {
+        background: #fff;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+    }
+{% endblock %}
+
+{% block content %}
+    <h1>Configuration Error</h1>
+
+    <div class="error-box">
+        <div class="error-type">{{ error_type }}</div>
+        <div class="error-message">{{ error_message }}</div>
+    </div>
+
+    <div class="config-path">
+        Config file: {{ config_path }}
+    </div>
+
+    <div class="help-section">
+        <h3>Example Configuration</h3>
+        <pre>{
+  "github": "https://github.com",
+  "mail": "https://gmail.com",
+  "jira": {
+    "template_url": "https://jira.example.com/browse/{1}",
+    "defaults": {
+      "1": "PROJ-1"
+    }
+  }
+}</pre>
+    </div>
+{% endblock %}

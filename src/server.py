@@ -11,6 +11,7 @@ from typing import Dict
 from urllib.parse import urlparse
 
 from jinja2 import Environment, FileSystemLoader
+from pydantic import ValidationError
 
 from src.models import GoLinksConfig, LinkTemplate
 
@@ -47,6 +48,13 @@ class GoLinksHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests."""
+        # Try to load config first
+        try:
+            config = self.config
+        except (json.JSONDecodeError, FileNotFoundError, ValidationError) as e:
+            self.show_config_error_page(e)
+            return
+
         # Parse the path
         parsed = urlparse(self.path)
         path = parsed.path.strip("/")
@@ -54,7 +62,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
 
         # Root path - show all available links
         if not path:
-            self.show_links_page()
+            self.show_links_page(config)
             return
 
         # Split path into segments
@@ -63,8 +71,8 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         remaining_segments = path_segments[1:] if len(path_segments) > 1 else []
 
         # Check if shortcut exists
-        if shortcut in self.config:
-            config_entry = self.config[shortcut]
+        if shortcut in config:
+            config_entry = config[shortcut]
 
             # Handle string config (backward compatible)
             if isinstance(config_entry, str):
@@ -96,16 +104,16 @@ class GoLinksHandler(BaseHTTPRequestHandler):
             self.end_headers()
         else:
             # Show error page
-            self.show_error_page(path)
+            self.show_error_page(path, config)
 
-    def show_links_page(self):
+    def show_links_page(self, config):
         """Display all available links."""
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
 
         template = self.jinja_env.get_template("links.html")
-        html = template.render(config=self.config)
+        html = template.render(config=config, config_path=str(self.config_path.resolve()))
         self.wfile.write(html.encode())
 
     def resolve_placeholders(
@@ -136,24 +144,52 @@ class GoLinksHandler(BaseHTTPRequestHandler):
 
         return result
 
-    def show_error_page(self, path):
+    def show_error_page(self, path, config):
         """Display error page for unknown shortcuts."""
         self.send_response(404)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
 
         # Prepare suggestions
-        suggestions = sorted(self.config.keys())[:10] if self.config else []
+        suggestions = sorted(config.keys())[:10] if config else []
         remaining_count = (
-            len(self.config) - 10 if self.config and len(self.config) > 10 else 0
+            len(config) - 10 if config and len(config) > 10 else 0
         )
 
         template = self.jinja_env.get_template("error.html")
         html = template.render(
             path=path,
-            config=self.config,
+            config=config,
             suggestions=suggestions,
             remaining_count=remaining_count,
+        )
+        self.wfile.write(html.encode())
+
+    def show_config_error_page(self, error: Exception):
+        """Display error page for configuration errors."""
+        self.send_response(500)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+
+        # Determine error type and message
+        if isinstance(error, json.JSONDecodeError):
+            error_type = "JSON Syntax Error"
+            error_message = f"Line {error.lineno}, Column {error.colno}: {error.msg}"
+        elif isinstance(error, FileNotFoundError):
+            error_type = "Configuration File Not Found"
+            error_message = str(error)
+        elif isinstance(error, ValidationError):
+            error_type = "Configuration Validation Error"
+            error_message = str(error)
+        else:
+            error_type = "Configuration Error"
+            error_message = str(error)
+
+        template = self.jinja_env.get_template("config_error.html")
+        html = template.render(
+            error_type=error_type,
+            error_message=error_message,
+            config_path=str(self.config_path.resolve()),
         )
         self.wfile.write(html.encode())
 

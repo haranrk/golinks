@@ -7,7 +7,7 @@ packages = ["src"]
 
 [project]
 name = "golinks"
-version = "1.0.0"
+version = "1.0.1"
 description = "A local go links redirect service for URL shortcuts"
 readme = "README.md"
 requires-python = ">=3.11"

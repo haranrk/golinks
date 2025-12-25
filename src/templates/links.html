@@ -38,10 +38,18 @@
         color: #6c757d;
         padding: 40px;
     }
+    .config-path {
+        font-family: monospace;
+        color: #6c757d;
+        font-size: 0.85em;
+        margin-top: -5px;
+        margin-bottom: 20px;
+    }
 {% endblock %}
 
 {% block content %}
     <h1>Available Go Links</h1>
+    <div class="config-path">Config: {{ config_path }}</div>
     <div class="links-container">
         {% if config %}
             {% for shortcut, destination in config|dictsort %}
