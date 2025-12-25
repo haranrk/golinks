@@ -4,6 +4,8 @@
 import argparse
 import json
 import re
+import shutil
+import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -15,16 +17,31 @@ from pydantic import ValidationError
 
 from src.models import GoLinksConfig, LinkTemplate
 
+PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / "com.user.golinks.plist"
+CONFIG_DIR = Path.home() / ".config" / "golinks"
+DEFAULT_CONFIG_PATH = CONFIG_DIR / "config.json"
+
 
 class GoLinksHandler(BaseHTTPRequestHandler):
     """HTTP request handler for go links."""
 
-    def __init__(self, *args, config_path=None, **kwargs):
-        self.config_path = config_path or Path.home() / ".golinks" / "config.json"
+    def __init__(self, *args, config_path: Path = Path.home() / ".golinks" / "config.json", **kwargs):
+        self.config_path = config_path
         # Set up Jinja2 template environment
         template_dir = Path(__file__).parent / "templates"
         self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
         super().__init__(*args, **kwargs)
+
+    def get_config_path_display(self) -> str:
+        """Get the config path as a string for display."""
+        return str(self.config_path.absolute())
+        # try:
+        #     if self.config_path is None:
+        #         return "Not configured"
+        #     # Use absolute() instead of resolve() - resolve() can fail if file doesn't exist
+        #     return str(Path(self.config_path).absolute())
+        # except Exception:
+        #     return str(self.config_path) if self.config_path else "Unknown"
 
     @property
     def config(self):
@@ -113,7 +130,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         template = self.jinja_env.get_template("links.html")
-        html = template.render(config=config, config_path=str(self.config_path.resolve()))
+        html = template.render(config=config, config_path=self.get_config_path_display())
         self.wfile.write(html.encode())
 
     def resolve_placeholders(
@@ -189,7 +206,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         html = template.render(
             error_type=error_type,
             error_message=error_message,
-            config_path=str(self.config_path.resolve()),
+            config_path=self.get_config_path_display(),
         )
         self.wfile.write(html.encode())
 
@@ -222,48 +239,194 @@ def run_server(host="127.0.0.1", port=8888, config_path=None):
         server.shutdown()
 
 
-def main():
-    """Main entry point."""
-    parser = argparse.ArgumentParser(description="Go Links redirect server")
-    parser.add_argument(
-        "--config",
-        "-c",
-        type=Path,
-        help="Path to configuration file (default: ~/.golinks/config.json)",
-    )
-    parser.add_argument(
-        "--port", "-p", type=int, default=8888, help="Port to listen on (default: 8888)"
-    )
-    parser.add_argument(
-        "--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)"
-    )
+def get_config_path(config_arg: Path | None) -> Path:
+    """Resolve the config path from argument or defaults."""
+    if config_arg:
+        return config_arg
 
-    args = parser.parse_args()
+    # Use config in project directory if it exists
+    local_config = Path(__file__).parent.parent.parent / "config.json"
+    if local_config.exists():
+        return local_config
 
-    # Use config in project directory if it exists and no path specified
-    if not args.config:
-        local_config = Path(__file__).parent.parent.parent / "config.json"
-        if local_config.exists():
-            args.config = local_config
-        else:
-            args.config = Path.home() / ".golinks" / "config.json"
+    return DEFAULT_CONFIG_PATH
 
-    # Ensure config directory exists
-    args.config.parent.mkdir(parents=True, exist_ok=True)
 
-    # Create default config if it doesn't exist
-    if not args.config.exists():
+def ensure_config_exists(config_path: Path) -> None:
+    """Ensure config directory and file exist."""
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not config_path.exists():
         default_config = {
             "github": "https://github.com",
             "mail": "https://gmail.com",
             "calendar": "https://calendar.google.com",
         }
-        with open(args.config, "w") as f:
+        with open(config_path, "w") as f:
             json.dump(default_config, f, indent=2)
-        print(f"Created default configuration at {args.config}")
+        print(f"Created default configuration at {config_path}")
 
-    # Run server
-    run_server(args.host, args.port, args.config)
+
+def cmd_run_server(args: argparse.Namespace) -> None:
+    """Handle run-server subcommand."""
+    config_path = get_config_path(args.config)
+    ensure_config_exists(config_path)
+    run_server(args.host, args.port, config_path)
+
+
+def setup_launchagent(golinks_path: str, port: int, config_path: Path) -> None:
+    """Create LaunchAgent plist file."""
+    PLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+    plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.golinks</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{golinks_path}</string>
+        <string>run-server</string>
+        <string>--port</string>
+        <string>{port}</string>
+        <string>--config</string>
+        <string>{config_path}</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{CONFIG_DIR}/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>{CONFIG_DIR}/stderr.log</string>
+</dict>
+</plist>
+"""
+    PLIST_PATH.write_text(plist_content)
+    print(f"LaunchAgent plist created at {PLIST_PATH}")
+
+
+def cmd_start_service(args: argparse.Namespace) -> None:
+    """Handle start-service subcommand."""
+    # Find golinks executable
+    golinks_path = shutil.which("golinks")
+    if not golinks_path:
+        print("Error: golinks command not found in PATH", file=sys.stderr)
+        sys.exit(1)
+
+    config_path = get_config_path(args.config)
+    ensure_config_exists(config_path)
+
+    # Setup LaunchAgent
+    setup_launchagent(golinks_path, args.port, config_path)
+
+    # Unload if already loaded
+    subprocess.run(
+        ["launchctl", "unload", str(PLIST_PATH)],
+        capture_output=True,
+    )
+
+    # Load the service
+    result = subprocess.run(
+        ["launchctl", "load", str(PLIST_PATH)],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print(f"Error loading service: {result.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Service started on port {args.port}")
+    print(f"Configuration: {config_path}")
+    print(f"Logs: {CONFIG_DIR}/stdout.log, {CONFIG_DIR}/stderr.log")
+
+
+def cmd_stop_service(args: argparse.Namespace) -> None:
+    """Handle stop-service subcommand."""
+    if not PLIST_PATH.exists():
+        print("Service is not installed", file=sys.stderr)
+        sys.exit(1)
+
+    result = subprocess.run(
+        ["launchctl", "unload", str(PLIST_PATH)],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print(f"Error stopping service: {result.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    print("Service stopped")
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="Go Links redirect server",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # run-server subcommand
+    run_parser = subparsers.add_parser(
+        "run-server",
+        help="Run the server directly (foreground)",
+    )
+    run_parser.add_argument(
+        "--config", "-c",
+        type=Path,
+        help=f"Path to configuration file (default: {DEFAULT_CONFIG_PATH})",
+    )
+    run_parser.add_argument(
+        "--port", "-p",
+        type=int,
+        default=8080,
+        help="Port to listen on (default: 8080)",
+    )
+    run_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1)",
+    )
+    run_parser.set_defaults(func=cmd_run_server)
+
+    # start-service subcommand
+    start_parser = subparsers.add_parser(
+        "start-service",
+        help="Start as a background service (macOS LaunchAgent)",
+    )
+    start_parser.add_argument(
+        "--config", "-c",
+        type=Path,
+        help=f"Path to configuration file (default: {DEFAULT_CONFIG_PATH})",
+    )
+    start_parser.add_argument(
+        "--port", "-p",
+        type=int,
+        default=8080,
+        help="Port to listen on (default: 8080)",
+    )
+    start_parser.set_defaults(func=cmd_start_service)
+
+    # stop-service subcommand
+    stop_parser = subparsers.add_parser(
+        "stop-service",
+        help="Stop the background service",
+    )
+    stop_parser.set_defaults(func=cmd_stop_service)
+
+    args = parser.parse_args()
+
+    if args.command is None:
+        parser.print_help()
+        sys.exit(1)
+
+    args.func(args)
 
 
 if __name__ == "__main__":
