@@ -26,6 +26,7 @@ vim ~/.config/golinks/config.json
 
 ```bash
 uv tool upgrade golinks
+golinks start-service
 ```
 
 ## How it works
