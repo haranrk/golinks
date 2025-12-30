@@ -66,6 +66,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests."""
         # Try to load config first
+        print(f"Handling GET request for {self.path}")
         try:
             config = self.config
         except (json.JSONDecodeError, FileNotFoundError, ValidationError) as e:
@@ -115,8 +116,14 @@ class GoLinksHandler(BaseHTTPRequestHandler):
                 separator = "&" if "?" in destination else "?"
                 destination = f"{destination}{separator}{query}"
 
-            # Perform 301 redirect
-            self.send_response(301)
+            # Log the redirect
+            print(f"[{self.log_date_time_string()}] {self.path} -> {destination}")
+
+            # A 301 redirect is permanent, a 302 redirect is temporary. If we use a 301 redirect,
+            # the browser will cache the redirect and may not follow the redirect if the destination
+            # changes.
+            # Perform 302 redirect
+            self.send_response(302)
             self.send_header("Location", destination)
             self.end_headers()
         else:
