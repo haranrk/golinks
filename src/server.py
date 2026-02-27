@@ -371,6 +371,91 @@ def cmd_stop_service(args: argparse.Namespace) -> None:
     print("Service stopped")
 
 
+def cmd_setup_port_forwarding(args: argparse.Namespace) -> None:
+    """Handle setup-port-forwarding subcommand.
+
+    Sets up macOS packet filter (pf) to forward port 80 -> 8080.
+    Requires sudo privileges.
+    """
+    import platform
+    from datetime import datetime
+
+    if platform.system() != "Darwin":
+        print("Error: Port forwarding setup is only supported on macOS", file=sys.stderr)
+        sys.exit(1)
+
+    anchor_path = Path("/etc/pf.anchors/golinks")
+    pf_conf_path = Path("/etc/pf.conf")
+    anchor_rule = 'rdr pass on lo0 inet proto tcp from any to 127.0.0.1 port 80 -> 127.0.0.1 port 8080'
+
+    # Step 1: Create pf anchor file
+    if anchor_path.exists():
+        print(f"Port forwarding anchor already exists at {anchor_path}")
+    else:
+        print("Creating port forwarding rule (requires sudo)...")
+        result = subprocess.run(
+            ["sudo", "tee", str(anchor_path)],
+            input=anchor_rule,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Error creating anchor file: {result.stderr}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Port forwarding anchor created at {anchor_path}")
+
+    # Step 2: Update pf.conf if needed
+    pf_conf_content = pf_conf_path.read_text()
+    if "golinks" in pf_conf_content:
+        print("pf.conf already configured for golinks")
+    else:
+        print("Updating pf.conf (requires sudo)...")
+
+        # Backup pf.conf
+        backup_path = f"/etc/pf.conf.backup.{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        subprocess.run(["sudo", "cp", str(pf_conf_path), backup_path], check=True)
+        print(f"Backed up pf.conf to {backup_path}")
+
+        # Add rdr-anchor after "rdr-anchor \"com.apple/*\""
+        pf_conf_content = pf_conf_content.replace(
+            'rdr-anchor "com.apple/*"',
+            'rdr-anchor "com.apple/*"\nrdr-anchor "golinks"'
+        )
+
+        # Add load anchor after "load anchor \"com.apple\" from \"/etc/pf.anchors/com.apple\""
+        pf_conf_content = pf_conf_content.replace(
+            'load anchor "com.apple" from "/etc/pf.anchors/com.apple"',
+            'load anchor "com.apple" from "/etc/pf.anchors/com.apple"\nload anchor "golinks" from "/etc/pf.anchors/golinks"'
+        )
+
+        # Write updated pf.conf
+        result = subprocess.run(
+            ["sudo", "tee", str(pf_conf_path)],
+            input=pf_conf_content,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Error updating pf.conf: {result.stderr}", file=sys.stderr)
+            sys.exit(1)
+        print("pf.conf updated")
+
+    # Step 3: Enable pfctl and reload config
+    print("Enabling packet filtering...")
+    subprocess.run(["sudo", "pfctl", "-e"], capture_output=True)
+
+    result = subprocess.run(
+        ["sudo", "pfctl", "-f", str(pf_conf_path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"Warning: Could not reload pf.conf: {result.stderr}", file=sys.stderr)
+        print("You may need to restart or manually run: sudo pfctl -f /etc/pf.conf")
+    else:
+        print("Port forwarding setup complete (80 -> 8080)")
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -426,6 +511,13 @@ def main():
         help="Stop the background service",
     )
     stop_parser.set_defaults(func=cmd_stop_service)
+
+    # setup-port-forwarding subcommand
+    pf_parser = subparsers.add_parser(
+        "setup-port-forwarding",
+        help="Setup port 80 -> 8080 forwarding (requires sudo, macOS only)",
+    )
+    pf_parser.set_defaults(func=cmd_setup_port_forwarding)
 
     args = parser.parse_args()
 
