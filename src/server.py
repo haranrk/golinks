@@ -29,7 +29,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         self.config_path = config_path
         # Set up Jinja2 template environment
         template_dir = Path(__file__).parent / "templates"
-        self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
+        self.jinja_env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)
         super().__init__(*args, **kwargs)
 
     def get_config_path_display(self) -> str:
