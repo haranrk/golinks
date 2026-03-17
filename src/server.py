@@ -456,6 +456,94 @@ def cmd_setup_port_forwarding(args: argparse.Namespace) -> None:
         print("Port forwarding setup complete (80 -> 8080)")
 
 
+def cmd_undo_port_forwarding(args: argparse.Namespace) -> None:
+    """Handle undo-port-forwarding subcommand.
+
+    Removes macOS packet filter (pf) rules created by setup-port-forwarding.
+    Requires sudo privileges.
+    """
+    import platform
+    from datetime import datetime
+
+    if platform.system() != "Darwin":
+        print("Error: Port forwarding undo is only supported on macOS", file=sys.stderr)
+        sys.exit(1)
+
+    anchor_path = Path("/etc/pf.anchors/golinks")
+    pf_conf_path = Path("/etc/pf.conf")
+
+    if not pf_conf_path.exists():
+        print("Error: /etc/pf.conf not found", file=sys.stderr)
+        sys.exit(1)
+
+    removed_anchor = False
+    if anchor_path.exists():
+        print("Removing port forwarding anchor (requires sudo)...")
+        result = subprocess.run(
+            ["sudo", "rm", "-f", str(anchor_path)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Error removing anchor file: {result.stderr}", file=sys.stderr)
+            sys.exit(1)
+        removed_anchor = True
+        print(f"Port forwarding anchor removed at {anchor_path}")
+    else:
+        print("Port forwarding anchor not found")
+
+    pf_conf_content = pf_conf_path.read_text()
+    lines = pf_conf_content.splitlines()
+    filtered_lines = [
+        line
+        for line in lines
+        if line.strip()
+        not in (
+            'rdr-anchor "golinks"',
+            'load anchor "golinks" from "/etc/pf.anchors/golinks"',
+        )
+    ]
+    updated_pf_conf = "\n".join(filtered_lines)
+    if pf_conf_content.endswith("\n"):
+        updated_pf_conf += "\n"
+
+    pf_conf_changed = updated_pf_conf != pf_conf_content
+    if pf_conf_changed:
+        print("Updating pf.conf (requires sudo)...")
+
+        backup_path = f"/etc/pf.conf.backup.{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        subprocess.run(["sudo", "cp", str(pf_conf_path), backup_path], check=True)
+        print(f"Backed up pf.conf to {backup_path}")
+
+        result = subprocess.run(
+            ["sudo", "tee", str(pf_conf_path)],
+            input=updated_pf_conf,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Error updating pf.conf: {result.stderr}", file=sys.stderr)
+            sys.exit(1)
+        print("pf.conf updated")
+    else:
+        print("pf.conf does not reference golinks")
+
+    if removed_anchor or pf_conf_changed:
+        print("Reloading packet filter rules...")
+        result = subprocess.run(
+            ["sudo", "pfctl", "-f", str(pf_conf_path)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"Warning: Could not reload pf.conf: {result.stderr}", file=sys.stderr)
+            print("You may need to restart or manually run: sudo pfctl -f /etc/pf.conf")
+        else:
+            print("Port forwarding removed")
+    else:
+        print("No port forwarding rules to remove")
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -518,6 +606,13 @@ def main():
         help="Setup port 80 -> 8080 forwarding (requires sudo, macOS only)",
     )
     pf_parser.set_defaults(func=cmd_setup_port_forwarding)
+
+    # undo-port-forwarding subcommand
+    undo_pf_parser = subparsers.add_parser(
+        "undo-port-forwarding",
+        help="Undo port 80 -> 8080 forwarding (requires sudo, macOS only)",
+    )
+    undo_pf_parser.set_defaults(func=cmd_undo_port_forwarding)
 
     args = parser.parse_args()
 
