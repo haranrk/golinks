@@ -83,6 +83,11 @@ class GoLinksHandler(BaseHTTPRequestHandler):
             self.show_links_page(config)
             return
 
+        # Edit page
+        if path == "edit":
+            self.show_edit_page()
+            return
+
         # Split path into segments
         path_segments = path.split("/")
         shortcut = path_segments[0]
@@ -129,6 +134,70 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         else:
             # Show error page
             self.show_error_page(path, config)
+
+    def do_POST(self):
+        """Handle POST requests."""
+        parsed = urlparse(self.path)
+        path = parsed.path.strip("/")
+
+        if path == "edit":
+            self.handle_edit_post()
+        else:
+            self.send_response(405)
+            self.end_headers()
+
+    def handle_edit_post(self):
+        """Handle saving config from the edit page (JSON body)."""
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+
+        try:
+            config_data = json.loads(body)
+            GoLinksConfig(config_data)
+            with open(self.config_path, "w") as f:
+                json.dump(config_data, f, indent=2)
+                f.write("\n")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True}).encode())
+        except (json.JSONDecodeError, ValidationError) as e:
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": False, "error": str(e)}).encode())
+
+    def show_edit_page(self, message=None, success=False):
+        """Display the config editor page."""
+        try:
+            config_data = json.loads(self.config_path.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            config_data = {}
+
+        # Normalize into list of entries for the template
+        links = []
+        for name, value in sorted(config_data.items()):
+            if isinstance(value, str):
+                links.append({"name": name, "url": value, "is_template": False, "defaults": {}})
+            elif isinstance(value, dict):
+                links.append({
+                    "name": name,
+                    "url": value.get("template_url", ""),
+                    "is_template": True,
+                    "defaults": value.get("defaults", {}),
+                })
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+
+        template = self.jinja_env.get_template("edit.html")
+        html = template.render(
+            links=links,
+            config_path=self.get_config_path_display(),
+            message=message,
+            success=success,
+        )
+        self.wfile.write(html.encode())
 
     def show_links_page(self, config):
         """Display all available links."""

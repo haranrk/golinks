@@ -38,7 +38,7 @@ format: ## Format code with ruff
 	uv run ruff format .
 
 dev: ## Run the development server
-	uv run golinks
+	uv run golinks run-server  --port 8923
 
 check: lint ## Check code quality (alias for lint)
 	@echo "All checks passed!"

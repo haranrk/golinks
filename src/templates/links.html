@@ -45,9 +45,20 @@
         margin-top: -5px;
         margin-bottom: 20px;
     }
+    .edit-link {
+        float: right;
+        font-size: 14px;
+        color: #007bff;
+        text-decoration: none;
+        margin-top: 8px;
+    }
+    .edit-link:hover {
+        text-decoration: underline;
+    }
 {% endblock %}
 
 {% block content %}
+    <a href="/edit" class="edit-link">Edit Links</a>
     <h1>Available Go Links</h1>
     <div class="config-path">Config: {{ config_path }}</div>
     <div class="links-container">

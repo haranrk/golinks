@@ -1,0 +1,457 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Go Links{% endblock %}
+
+{% block max_width %}900px{% endblock %}
+
+{% block extra_styles %}
+    .config-path {
+        font-family: monospace;
+        color: #6c757d;
+        font-size: 0.85em;
+        margin-top: -5px;
+        margin-bottom: 20px;
+    }
+    .link-card {
+        background: white;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        position: relative;
+    }
+    .link-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+    .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .field-group label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .field-group input {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+        font-family: monospace;
+    }
+    .field-group input:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
+    .field-name { flex: 0 0 150px; }
+    .field-url { flex: 1; }
+    .template-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 22px;
+    }
+    .template-toggle label {
+        font-size: 12px;
+        color: #6c757d;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .defaults-section {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #eee;
+    }
+    .defaults-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    .defaults-header span {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .default-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+    .default-row input {
+        padding: 6px 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: monospace;
+    }
+    .default-row input:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
+    .default-key { width: 120px; }
+    .default-value { flex: 1; }
+    .btn {
+        padding: 6px 14px;
+        border: none;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-sm {
+        padding: 4px 10px;
+        font-size: 12px;
+    }
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+    }
+    .btn-danger:hover { background: #c82333; }
+    .btn-outline {
+        background: transparent;
+        border: 1px solid #ccc;
+        color: #333;
+    }
+    .btn-outline:hover { background: #f8f9fa; }
+    .btn-primary {
+        background: #007bff;
+        color: white;
+        padding: 10px 28px;
+        font-size: 15px;
+    }
+    .btn-primary:hover { background: #0056b3; }
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        text-decoration: none;
+        padding: 10px 20px;
+        font-size: 15px;
+        border-radius: 4px;
+    }
+    .btn-secondary:hover { background: #545b62; }
+    .bottom-bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 20px;
+    }
+    .message {
+        padding: 10px 16px;
+        border-radius: 4px;
+        margin-top: 16px;
+        display: none;
+    }
+    .message-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .message-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    .message.visible { display: block; }
+    .empty-state {
+        text-align: center;
+        color: #6c757d;
+        padding: 40px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .delete-btn {
+        margin-top: 22px;
+    }
+{% endblock %}
+
+{% block content %}
+    <h1>Edit Go Links</h1>
+    <div class="config-path">Config: {{ config_path }}</div>
+
+    <div id="links-container"></div>
+
+    <div id="empty-state" class="empty-state" style="display:none;">
+        <p>No links configured. Click "Add Link" to create one.</p>
+    </div>
+
+    <div class="bottom-bar">
+        <button class="btn btn-outline" id="add-link-btn" type="button">+ Add Link</button>
+        <button class="btn btn-primary" id="save-btn" type="button">Save</button>
+        <a href="/" class="btn-secondary">Back to Links</a>
+    </div>
+
+    <div id="message" class="message"></div>
+
+    <script>
+    (function() {
+        var links = {{ links | tojson }};
+
+        var container = document.getElementById('links-container');
+        var emptyState = document.getElementById('empty-state');
+        var messageEl = document.getElementById('message');
+
+        function showMessage(text, isSuccess) {
+            messageEl.textContent = text;
+            messageEl.className = 'message visible ' + (isSuccess ? 'message-success' : 'message-error');
+            setTimeout(function() { messageEl.className = 'message'; }, 4000);
+        }
+
+        function renderAll() {
+            container.innerHTML = '';
+            if (links.length === 0) {
+                emptyState.style.display = '';
+            } else {
+                emptyState.style.display = 'none';
+                for (var i = 0; i < links.length; i++) {
+                    container.appendChild(createCard(i));
+                }
+            }
+        }
+
+        function createCard(index) {
+            var link = links[index];
+            var card = document.createElement('div');
+            card.className = 'link-card';
+            card.setAttribute('data-index', index);
+
+            var row = document.createElement('div');
+            row.className = 'link-row';
+
+            // Name field
+            var nameGroup = document.createElement('div');
+            nameGroup.className = 'field-group field-name';
+            var nameLabel = document.createElement('label');
+            nameLabel.textContent = 'Shortcut';
+            var nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.value = link.name;
+            nameInput.placeholder = 'e.g. github';
+            nameInput.setAttribute('data-field', 'name');
+            nameInput.addEventListener('input', function(e) {
+                links[index].name = e.target.value;
+            });
+            nameGroup.appendChild(nameLabel);
+            nameGroup.appendChild(nameInput);
+
+            // URL field
+            var urlGroup = document.createElement('div');
+            urlGroup.className = 'field-group field-url';
+            var urlLabel = document.createElement('label');
+            urlLabel.textContent = link.is_template ? 'Template URL' : 'URL';
+            var urlInput = document.createElement('input');
+            urlInput.type = 'text';
+            urlInput.value = link.url;
+            urlInput.placeholder = link.is_template ? 'e.g. https://example.com/{1}/page' : 'e.g. https://github.com';
+            urlInput.setAttribute('data-field', 'url');
+            urlInput.addEventListener('input', function(e) {
+                links[index].url = e.target.value;
+            });
+            urlGroup.appendChild(urlLabel);
+            urlGroup.appendChild(urlInput);
+
+            // Template toggle
+            var toggleWrap = document.createElement('div');
+            toggleWrap.className = 'template-toggle';
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = link.is_template;
+            checkbox.id = 'tmpl-' + index;
+            checkbox.addEventListener('change', function(e) {
+                links[index].is_template = e.target.checked;
+                if (!e.target.checked) {
+                    links[index].defaults = {};
+                }
+                renderAll();
+            });
+            var toggleLabel = document.createElement('label');
+            toggleLabel.htmlFor = 'tmpl-' + index;
+            toggleLabel.textContent = 'Template';
+            toggleWrap.appendChild(checkbox);
+            toggleWrap.appendChild(toggleLabel);
+
+            // Delete button
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-danger btn-sm delete-btn';
+            delBtn.textContent = 'Delete';
+            delBtn.addEventListener('click', function() {
+                links.splice(index, 1);
+                renderAll();
+            });
+
+            row.appendChild(nameGroup);
+            row.appendChild(urlGroup);
+            row.appendChild(toggleWrap);
+            row.appendChild(delBtn);
+            card.appendChild(row);
+
+            // Defaults section (only for templates)
+            if (link.is_template) {
+                var defaultsSection = document.createElement('div');
+                defaultsSection.className = 'defaults-section';
+
+                var header = document.createElement('div');
+                header.className = 'defaults-header';
+                var headerLabel = document.createElement('span');
+                headerLabel.textContent = 'Default Values';
+                var addDefaultBtn = document.createElement('button');
+                addDefaultBtn.type = 'button';
+                addDefaultBtn.className = 'btn btn-outline btn-sm';
+                addDefaultBtn.textContent = '+ Add Default';
+                addDefaultBtn.addEventListener('click', function() {
+                    links[index].defaults[''] = '';
+                    renderAll();
+                });
+                header.appendChild(headerLabel);
+                header.appendChild(addDefaultBtn);
+                defaultsSection.appendChild(header);
+
+                var keys = Object.keys(link.defaults);
+                for (var k = 0; k < keys.length; k++) {
+                    (function(oldKey) {
+                        var defRow = document.createElement('div');
+                        defRow.className = 'default-row';
+
+                        var keyInput = document.createElement('input');
+                        keyInput.type = 'text';
+                        keyInput.className = 'default-key';
+                        keyInput.value = oldKey;
+                        keyInput.placeholder = 'key (e.g. 1)';
+                        keyInput.setAttribute('data-field', 'default-key');
+                        keyInput.addEventListener('change', function(e) {
+                            var newKey = e.target.value;
+                            var val = links[index].defaults[oldKey];
+                            delete links[index].defaults[oldKey];
+                            if (newKey) {
+                                links[index].defaults[newKey] = val;
+                            }
+                            renderAll();
+                        });
+
+                        var valInput = document.createElement('input');
+                        valInput.type = 'text';
+                        valInput.className = 'default-value';
+                        valInput.value = link.defaults[oldKey];
+                        valInput.placeholder = 'default value';
+                        valInput.setAttribute('data-field', 'default-value');
+                        valInput.addEventListener('input', function(e) {
+                            links[index].defaults[oldKey] = e.target.value;
+                        });
+
+                        var removeBtn = document.createElement('button');
+                        removeBtn.type = 'button';
+                        removeBtn.className = 'btn btn-danger btn-sm';
+                        removeBtn.textContent = 'X';
+                        removeBtn.addEventListener('click', function() {
+                            delete links[index].defaults[oldKey];
+                            renderAll();
+                        });
+
+                        defRow.appendChild(keyInput);
+                        defRow.appendChild(valInput);
+                        defRow.appendChild(removeBtn);
+                        defaultsSection.appendChild(defRow);
+                    })(keys[k]);
+                }
+
+                card.appendChild(defaultsSection);
+            }
+
+            return card;
+        }
+
+        // Add link
+        document.getElementById('add-link-btn').addEventListener('click', function() {
+            links.push({ name: '', url: '', is_template: false, defaults: {} });
+            renderAll();
+            // Focus the new name input
+            var cards = container.querySelectorAll('.link-card');
+            var last = cards[cards.length - 1];
+            if (last) {
+                var input = last.querySelector('input[data-field="name"]');
+                if (input) input.focus();
+            }
+        });
+
+        // Save
+        document.getElementById('save-btn').addEventListener('click', function() {
+            var config = {};
+            var hasError = false;
+
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i];
+                var name = link.name.trim();
+                if (!name) {
+                    showMessage('Link #' + (i + 1) + ' is missing a shortcut name.', false);
+                    hasError = true;
+                    break;
+                }
+                if (!link.url.trim()) {
+                    showMessage('Link "' + name + '" is missing a URL.', false);
+                    hasError = true;
+                    break;
+                }
+                if (config[name] !== undefined) {
+                    showMessage('Duplicate shortcut name: "' + name + '".', false);
+                    hasError = true;
+                    break;
+                }
+
+                if (link.is_template) {
+                    var entry = { template_url: link.url.trim(), defaults: {} };
+                    var keys = Object.keys(link.defaults);
+                    for (var k = 0; k < keys.length; k++) {
+                        if (keys[k].trim()) {
+                            entry.defaults[keys[k].trim()] = link.defaults[keys[k]];
+                        }
+                    }
+                    if (Object.keys(entry.defaults).length === 0) {
+                        delete entry.defaults;
+                    }
+                    config[name] = entry;
+                } else {
+                    config[name] = link.url.trim();
+                }
+            }
+
+            if (hasError) return;
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/edit', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    showMessage('Configuration saved successfully.', true);
+                } else {
+                    try {
+                        var resp = JSON.parse(xhr.responseText);
+                        showMessage('Error: ' + resp.error, false);
+                    } catch(e) {
+                        showMessage('Error saving configuration.', false);
+                    }
+                }
+            };
+            xhr.onerror = function() {
+                showMessage('Network error while saving.', false);
+            };
+            xhr.send(JSON.stringify(config));
+        });
+
+        renderAll();
+    })();
+    </script>
+{% endblock %}
