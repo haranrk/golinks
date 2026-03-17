@@ -3,74 +3,154 @@
 {% block title %}Go Links{% endblock %}
 
 {% block extra_styles %}
-    .links-container {
-        background: white;
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .link-item {
+    .page-header {
         display: flex;
         justify-content: space-between;
-        padding: 12px;
-        border-bottom: 1px solid #eee;
+        align-items: flex-start;
     }
+
+    .header-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+    }
+
+    .links-list {
+        overflow: hidden;
+    }
+
+    .link-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.1s ease;
+    }
+
     .link-item:last-child {
         border-bottom: none;
     }
+
     .link-item:hover {
-        background: #f8f9fa;
+        background: #f8fafc;
     }
-    .shortcut {
-        font-weight: bold;
-        color: #007bff;
-        text-decoration: none;
-        font-family: monospace;
+
+    .link-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .link-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #eff6ff;
+        color: #3b82f6;
+        font-weight: 700;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    .link-name {
+        font-weight: 600;
+        color: #0f172a;
+        font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
         font-size: 14px;
     }
-    .destination {
-        color: #6c757d;
+
+    .link-name span {
+        color: #94a3b8;
+        font-weight: 400;
+    }
+
+    .link-dest {
+        color: #64748b;
         font-size: 13px;
-        word-break: break-all;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 420px;
     }
-    .empty {
+
+    .link-arrow {
+        color: #cbd5e1;
+        font-size: 18px;
+        flex-shrink: 0;
+        margin-left: 8px;
+        transition: color 0.15s ease, transform 0.15s ease;
+    }
+
+    .link-item:hover .link-arrow {
+        color: #3b82f6;
+        transform: translateX(2px);
+    }
+
+    .empty-state {
         text-align: center;
-        color: #6c757d;
-        padding: 40px;
+        padding: 64px 24px;
     }
-    .config-path {
-        font-family: monospace;
-        color: #6c757d;
-        font-size: 0.85em;
-        margin-top: -5px;
-        margin-bottom: 20px;
+
+    .empty-state .empty-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.3;
     }
-    .edit-link {
-        float: right;
-        font-size: 14px;
-        color: #007bff;
-        text-decoration: none;
-        margin-top: 8px;
+
+    .empty-state p {
+        color: #94a3b8;
+        font-size: 15px;
+        margin-bottom: 4px;
     }
-    .edit-link:hover {
-        text-decoration: underline;
+
+    .link-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #eff6ff;
+        color: #3b82f6;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        margin-left: 10px;
+        vertical-align: middle;
     }
 {% endblock %}
 
 {% block content %}
-    <a href="/edit" class="edit-link">Edit Links</a>
-    <h1>Available Go Links</h1>
-    <div class="config-path">Config: {{ config_path }}</div>
-    <div class="links-container">
+    <div class="page-header">
+        <div>
+            <h1>Go Links <span class="link-count">{{ config|length }}</span></h1>
+            <div class="subtitle">{{ config_path }}</div>
+        </div>
+        <div class="header-actions">
+            <a href="/edit" class="btn btn-primary">Edit Links</a>
+        </div>
+    </div>
+
+    <div class="card links-list">
         {% if config %}
             {% for shortcut, destination in config|dictsort %}
-                <div class="link-item">
-                    <a href="/{{ shortcut }}" class="shortcut">go/{{ shortcut }}</a>
-                    <span class="destination">→ {{ destination }}</span>
-                </div>
+                <a href="/{{ shortcut }}" class="link-item" style="text-decoration: none; color: inherit;">
+                    <div class="link-left">
+                        <div class="link-icon">{{ shortcut[0]|upper }}</div>
+                        <div>
+                            <div class="link-name"><span>go/</span>{{ shortcut }}</div>
+                            <div class="link-dest">{{ destination }}</div>
+                        </div>
+                    </div>
+                    <div class="link-arrow">&rarr;</div>
+                </a>
             {% endfor %}
         {% else %}
-            <div class="empty">
+            <div class="empty-state">
+                <div class="empty-icon">&#9898;</div>
                 <p>No links configured yet.</p>
                 <p>Add links to your config file to get started.</p>
             </div>

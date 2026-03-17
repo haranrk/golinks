@@ -2,57 +2,133 @@
 
 {% block title %}Go Link Not Found{% endblock %}
 
-{% block max_width %}600px{% endblock %}
-{% block margin %}100px auto{% endblock %}
-{% block body_styles %}text-align: center;{% endblock %}
-
-{% block h1_color %}#dc3545{% endblock %}
-{% block h1_styles %}{% endblock %}
+{% block max_width %}560px{% endblock %}
+{% block container_padding %}80px 24px{% endblock %}
 
 {% block extra_styles %}
-    .error-message {
-        background: #f8d7da;
-        border: 1px solid #f5c6cb;
+    .error-page {
+        text-align: center;
+    }
+
+    .error-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: #fef2f2;
+        color: #ef4444;
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .error-page h1 {
+        font-size: 22px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+    }
+
+    .error-detail {
+        color: #64748b;
+        font-size: 15px;
+        margin-bottom: 32px;
+    }
+
+    .error-detail code {
+        font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+        background: #f1f5f9;
+        padding: 2px 8px;
         border-radius: 4px;
-        padding: 20px;
-        margin: 20px 0;
+        font-size: 14px;
+        color: #0f172a;
+        font-weight: 500;
     }
-    .shortcut {
-        font-family: monospace;
-        font-weight: bold;
-    }
-    .suggestions {
-        margin-top: 30px;
+
+    .suggestions-card {
         text-align: left;
+        padding: 20px;
     }
-    a {
-        color: #007bff;
-        text-decoration: none;
+
+    .suggestions-title {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 12px;
     }
-    a:hover {
-        text-decoration: underline;
+
+    .suggestion-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+
+    .suggestion-item a {
+        font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .suggestion-bullet {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #cbd5e1;
+        flex-shrink: 0;
+    }
+
+    .back-link {
+        margin-top: 24px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        color: #64748b;
+    }
+
+    .back-link:hover {
+        color: #3b82f6;
     }
 {% endblock %}
 
 {% block content %}
-    <h1>404 - Go Link Not Found</h1>
-    <div class="error-message">
-        <p>The shortcut <span class="shortcut">go/{{ path }}</span> does not exist.</p>
-    </div>
+    <div class="error-page">
+        <div class="error-badge">?</div>
+        <h1>Link Not Found</h1>
+        <p class="error-detail">
+            The shortcut <code>go/{{ path }}</code> doesn't exist.
+        </p>
 
-    {% if config %}
-        <div class="suggestions">
-            <h3>Available shortcuts:</h3>
-            <ul>
+        {% if config %}
+            <div class="card suggestions-card">
+                <div class="suggestions-title">Available shortcuts</div>
                 {% for shortcut in suggestions %}
-                    <li><a href="/{{ shortcut }}">go/{{ shortcut }}</a></li>
+                    <div class="suggestion-item">
+                        <div class="suggestion-bullet"></div>
+                        <a href="/{{ shortcut }}">go/{{ shortcut }}</a>
+                    </div>
                 {% endfor %}
                 {% if remaining_count > 0 %}
-                    <li><a href="/">... and {{ remaining_count }} more</a></li>
+                    <div class="suggestion-item">
+                        <div class="suggestion-bullet"></div>
+                        <a href="/">and {{ remaining_count }} more&hellip;</a>
+                    </div>
                 {% endif %}
-            </ul>
-        </div>
-    {% endif %}
+            </div>
+        {% endif %}
 
-    <p><a href="/">← View all links</a></p>
+        <div>
+            <a href="/" class="back-link">&larr; View all links</a>
+        </div>
+    </div>
 {% endblock %}

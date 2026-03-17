@@ -2,76 +2,117 @@
 
 {% block title %}Configuration Error{% endblock %}
 
-{% block max_width %}700px{% endblock %}
-{% block margin %}100px auto{% endblock %}
-{% block body_styles %}text-align: center;{% endblock %}
-
-{% block h1_color %}#dc3545{% endblock %}
-{% block h1_styles %}{% endblock %}
+{% block max_width %}640px{% endblock %}
+{% block container_padding %}80px 24px{% endblock %}
 
 {% block extra_styles %}
-    .error-box {
-        background: #f8d7da;
-        border: 1px solid #f5c6cb;
-        border-radius: 4px;
-        padding: 20px;
-        margin: 20px 0;
-        text-align: left;
+    .error-page {
+        text-align: center;
     }
+
+    .error-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: #fef2f2;
+        color: #ef4444;
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .error-page h1 {
+        font-size: 22px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+    }
+
+    .config-file {
+        font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 24px;
+    }
+
+    .error-card {
+        text-align: left;
+        padding: 20px;
+        margin-bottom: 16px;
+        border-color: #fecaca;
+        background: #fff5f5;
+    }
+
     .error-type {
-        font-weight: bold;
-        color: #721c24;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #dc2626;
         margin-bottom: 10px;
     }
+
     .error-message {
-        font-family: monospace;
+        font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        color: #1e293b;
         background: #fff;
-        padding: 15px;
-        border-radius: 4px;
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid #fde8e8;
         overflow-x: auto;
         white-space: pre-wrap;
         word-break: break-word;
     }
-    .config-path {
-        font-family: monospace;
-        color: #666;
-        font-size: 0.9em;
-        margin-top: 20px;
-    }
-    .help-section {
+
+    .help-card {
         text-align: left;
-        margin-top: 30px;
         padding: 20px;
-        background: #e7f3ff;
-        border-radius: 4px;
+        border-color: #bfdbfe;
+        background: #eff6ff;
     }
-    .help-section h3 {
-        margin-top: 0;
-        color: #0056b3;
+
+    .help-title {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #3b82f6;
+        margin-bottom: 12px;
     }
-    pre {
+
+    .help-card pre {
+        font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        color: #1e293b;
         background: #fff;
-        padding: 15px;
-        border-radius: 4px;
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid #dbeafe;
         overflow-x: auto;
+        margin: 0;
     }
 {% endblock %}
 
 {% block content %}
-    <h1>Configuration Error</h1>
+    <div class="error-page">
+        <div class="error-badge">!</div>
+        <h1>Configuration Error</h1>
+        <div class="config-file">{{ config_path }}</div>
 
-    <div class="error-box">
-        <div class="error-type">{{ error_type }}</div>
-        <div class="error-message">{{ error_message }}</div>
-    </div>
+        <div class="card error-card">
+            <div class="error-type">{{ error_type }}</div>
+            <div class="error-message">{{ error_message }}</div>
+        </div>
 
-    <div class="config-path">
-        Config file: {{ config_path }}
-    </div>
-
-    <div class="help-section">
-        <h3>Example Configuration</h3>
-        <pre>{
+        <div class="card help-card">
+            <div class="help-title">Example Configuration</div>
+            <pre>{
   "github": "https://github.com",
   "mail": "https://gmail.com",
   "jira": {
@@ -81,5 +122,6 @@
     }
   }
 }</pre>
+        </div>
     </div>
 {% endblock %}
