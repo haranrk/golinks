@@ -16,6 +16,7 @@ from jinja2 import Environment, FileSystemLoader
 from pydantic import ValidationError
 
 from src.models import GoLinksConfig, LinkTemplate
+from src.stats import get_stats_path, increment_stat, load_stats
 
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / "com.user.golinks.plist"
 CONFIG_DIR = Path.home() / ".config" / "golinks"
@@ -25,11 +26,19 @@ DEFAULT_CONFIG_PATH = CONFIG_DIR / "config.json"
 class GoLinksHandler(BaseHTTPRequestHandler):
     """HTTP request handler for go links."""
 
-    def __init__(self, *args, config_path: Path = Path.home() / ".golinks" / "config.json", **kwargs):
+    def __init__(
+        self,
+        *args,
+        config_path: Path = Path.home() / ".golinks" / "config.json",
+        **kwargs,
+    ):
         self.config_path = config_path
+        self.stats_path = get_stats_path(config_path)
         # Set up Jinja2 template environment
         template_dir = Path(__file__).parent / "templates"
-        self.jinja_env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)
+        self.jinja_env = Environment(
+            loader=FileSystemLoader(template_dir), autoescape=True
+        )
         super().__init__(*args, **kwargs)
 
     def get_config_path_display(self) -> str:
@@ -88,6 +97,11 @@ class GoLinksHandler(BaseHTTPRequestHandler):
             self.show_edit_page()
             return
 
+        # Stats page
+        if path == "stats":
+            self.show_stats_page(config)
+            return
+
         # Split path into segments
         path_segments = path.split("/")
         shortcut = path_segments[0]
@@ -120,6 +134,9 @@ class GoLinksHandler(BaseHTTPRequestHandler):
             if query:
                 separator = "&" if "?" in destination else "?"
                 destination = f"{destination}{separator}{query}"
+
+            # Track visit
+            increment_stat(self.stats_path, shortcut)
 
             # Log the redirect
             print(f"[{self.log_date_time_string()}] {self.path} -> {destination}")
@@ -178,14 +195,18 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         links = []
         for name, value in sorted(config_data.items()):
             if isinstance(value, str):
-                links.append({"name": name, "url": value, "is_template": False, "defaults": {}})
+                links.append(
+                    {"name": name, "url": value, "is_template": False, "defaults": {}}
+                )
             elif isinstance(value, dict):
-                links.append({
-                    "name": name,
-                    "url": value.get("template_url", ""),
-                    "is_template": True,
-                    "defaults": value.get("defaults", {}),
-                })
+                links.append(
+                    {
+                        "name": name,
+                        "url": value.get("template_url", ""),
+                        "is_template": True,
+                        "defaults": value.get("defaults", {}),
+                    }
+                )
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
@@ -205,8 +226,22 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
 
+        stats = load_stats(self.stats_path)
         template = self.jinja_env.get_template("links.html")
-        html = template.render(config=config, config_path=self.get_config_path_display())
+        html = template.render(
+            config=config, config_path=self.get_config_path_display(), stats=stats
+        )
+        self.wfile.write(html.encode())
+
+    def show_stats_page(self, config):
+        """Display visit statistics."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+
+        stats = load_stats(self.stats_path)
+        template = self.jinja_env.get_template("stats.html")
+        html = template.render(config=config, stats=stats)
         self.wfile.write(html.encode())
 
     def resolve_placeholders(
@@ -245,9 +280,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
 
         # Prepare suggestions
         suggestions = sorted(config.keys())[:10] if config else []
-        remaining_count = (
-            len(config) - 10 if config and len(config) > 10 else 0
-        )
+        remaining_count = len(config) - 10 if config and len(config) > 10 else 0
 
         template = self.jinja_env.get_template("error.html")
         html = template.render(
@@ -450,12 +483,14 @@ def cmd_setup_port_forwarding(args: argparse.Namespace) -> None:
     from datetime import datetime
 
     if platform.system() != "Darwin":
-        print("Error: Port forwarding setup is only supported on macOS", file=sys.stderr)
+        print(
+            "Error: Port forwarding setup is only supported on macOS", file=sys.stderr
+        )
         sys.exit(1)
 
     anchor_path = Path("/etc/pf.anchors/golinks")
     pf_conf_path = Path("/etc/pf.conf")
-    anchor_rule = 'rdr pass on lo0 inet proto tcp from any to 127.0.0.1 port 80 -> 127.0.0.1 port 8080'
+    anchor_rule = "rdr pass on lo0 inet proto tcp from any to 127.0.0.1 port 80 -> 127.0.0.1 port 8080"
 
     # Step 1: Create pf anchor file
     if anchor_path.exists():
@@ -487,14 +522,13 @@ def cmd_setup_port_forwarding(args: argparse.Namespace) -> None:
 
         # Add rdr-anchor after "rdr-anchor \"com.apple/*\""
         pf_conf_content = pf_conf_content.replace(
-            'rdr-anchor "com.apple/*"',
-            'rdr-anchor "com.apple/*"\nrdr-anchor "golinks"'
+            'rdr-anchor "com.apple/*"', 'rdr-anchor "com.apple/*"\nrdr-anchor "golinks"'
         )
 
         # Add load anchor after "load anchor \"com.apple\" from \"/etc/pf.anchors/com.apple\""
         pf_conf_content = pf_conf_content.replace(
             'load anchor "com.apple" from "/etc/pf.anchors/com.apple"',
-            'load anchor "com.apple" from "/etc/pf.anchors/com.apple"\nload anchor "golinks" from "/etc/pf.anchors/golinks"'
+            'load anchor "com.apple" from "/etc/pf.anchors/com.apple"\nload anchor "golinks" from "/etc/pf.anchors/golinks"',
         )
 
         # Write updated pf.conf
@@ -605,7 +639,9 @@ def cmd_undo_port_forwarding(args: argparse.Namespace) -> None:
             text=True,
         )
         if result.returncode != 0:
-            print(f"Warning: Could not reload pf.conf: {result.stderr}", file=sys.stderr)
+            print(
+                f"Warning: Could not reload pf.conf: {result.stderr}", file=sys.stderr
+            )
             print("You may need to restart or manually run: sudo pfctl -f /etc/pf.conf")
         else:
             print("Port forwarding removed")
@@ -627,12 +663,14 @@ def main():
         help="Run the server directly (foreground)",
     )
     run_parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         type=Path,
         help=f"Path to configuration file (default: {DEFAULT_CONFIG_PATH})",
     )
     run_parser.add_argument(
-        "--port", "-p",
+        "--port",
+        "-p",
         type=int,
         default=8080,
         help="Port to listen on (default: 8080)",
@@ -650,12 +688,14 @@ def main():
         help="Start as a background service (macOS LaunchAgent)",
     )
     start_parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         type=Path,
         help=f"Path to configuration file (default: {DEFAULT_CONFIG_PATH})",
     )
     start_parser.add_argument(
-        "--port", "-p",
+        "--port",
+        "-p",
         type=int,
         default=8080,
         help="Port to listen on (default: 8080)",

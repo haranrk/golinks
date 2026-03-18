@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}Stats - Go Links{% endblock %}
+
+{% block extra_styles %}
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+    }
+
+    .summary {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .summary-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px 24px;
+        flex: 1;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+    }
+
+    .summary-label {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+
+    .summary-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #0f172a;
+        letter-spacing: -0.025em;
+    }
+
+    .stats-list {
+        overflow: hidden;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .stat-item:last-child {
+        border-bottom: none;
+    }
+
+    .stat-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .stat-rank {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: #f1f5f9;
+        color: #64748b;
+        font-weight: 600;
+        font-size: 12px;
+        flex-shrink: 0;
+    }
+
+    .stat-rank.top {
+        background: #eff6ff;
+        color: #3b82f6;
+    }
+
+    .stat-name {
+        font-weight: 600;
+        color: #0f172a;
+        font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+        font-size: 14px;
+    }
+
+    .stat-name span {
+        color: #94a3b8;
+        font-weight: 400;
+    }
+
+    .stat-dest {
+        color: #64748b;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 360px;
+    }
+
+    .stat-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 600;
+        font-size: 14px;
+        color: #0f172a;
+        flex-shrink: 0;
+        margin-left: 16px;
+    }
+
+    .stat-count .label {
+        font-weight: 400;
+        color: #94a3b8;
+        font-size: 12px;
+    }
+
+    .stat-bar-bg {
+        height: 4px;
+        background: #f1f5f9;
+        border-radius: 2px;
+        margin-top: 8px;
+        overflow: hidden;
+    }
+
+    .stat-bar {
+        height: 100%;
+        background: #3b82f6;
+        border-radius: 2px;
+        transition: width 0.3s ease;
+    }
+
+    .link-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #eff6ff;
+        color: #3b82f6;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        margin-left: 10px;
+        vertical-align: middle;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 64px 24px;
+    }
+
+    .empty-state p {
+        color: #94a3b8;
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+{% endblock %}
+
+{% block content %}
+    {% set total_visits = stats.values()|sum %}
+    {% set max_visits = stats.values()|max if stats else 0 %}
+
+    <div class="page-header">
+        <div>
+            <h1>Stats <span class="link-count">{{ config|length }} links</span></h1>
+        </div>
+        <div class="header-actions">
+            <a href="/" class="btn btn-secondary">Home</a>
+        </div>
+    </div>
+
+    <div class="summary">
+        <div class="summary-card">
+            <div class="summary-label">Total Visits</div>
+            <div class="summary-value">{{ total_visits }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Active Links</div>
+            <div class="summary-value">{{ stats|length }}</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-label">Total Links</div>
+            <div class="summary-value">{{ config|length }}</div>
+        </div>
+    </div>
+
+    <div class="card stats-list">
+        {% if config %}
+            {# Build sorted list: links with visits first (desc), then unvisited #}
+            {% set visited = [] %}
+            {% set unvisited = [] %}
+            {% for shortcut, destination in config|dictsort %}
+                {% if stats.get(shortcut, 0) > 0 %}
+                    {% set _ = visited.append((shortcut, destination, stats[shortcut])) %}
+                {% else %}
+                    {% set _ = unvisited.append((shortcut, destination, 0)) %}
+                {% endif %}
+            {% endfor %}
+            {% set sorted_links = visited|sort(attribute='2', reverse=true) + unvisited %}
+
+            {% for shortcut, destination, count in sorted_links %}
+                <div class="stat-item">
+                    <div class="stat-left">
+                        <div class="stat-rank {{ 'top' if loop.index <= 3 and count > 0 }}">{{ loop.index }}</div>
+                        <div>
+                            <div class="stat-name"><span>go/</span>{{ shortcut }}</div>
+                            <div class="stat-dest">{{ destination }}</div>
+                            {% if max_visits > 0 and count > 0 %}
+                                <div class="stat-bar-bg">
+                                    <div class="stat-bar" style="width: {{ (count / max_visits * 100)|round(1) }}%"></div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="stat-count">
+                        {{ count }} <span class="label">visit{{ 's' if count != 1 }}</span>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <p>No links configured yet.</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

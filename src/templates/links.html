@@ -130,6 +130,7 @@
             <div class="subtitle">{{ config_path }}</div>
         </div>
         <div class="header-actions">
+            <a href="/stats" class="btn btn-secondary">Stats</a>
             <a href="/edit" class="btn btn-primary">Edit Links</a>
         </div>
     </div>
@@ -145,7 +146,12 @@
                             <div class="link-dest">{{ destination }}</div>
                         </div>
                     </div>
-                    <div class="link-arrow">&rarr;</div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        {% if stats.get(shortcut, 0) > 0 %}
+                            <span style="color: #94a3b8; font-size: 12px;">{{ stats[shortcut] }} visit{{ 's' if stats[shortcut] != 1 }}</span>
+                        {% endif %}
+                        <div class="link-arrow">&rarr;</div>
+                    </div>
                 </a>
             {% endfor %}
         {% else %}

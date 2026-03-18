@@ -22,7 +22,16 @@ ORIGINAL_CONFIG = {
 def server():
     """Start the golinks server for testing."""
     proc = subprocess.Popen(
-        ["uv", "run", "golinks", "run-server", "--port", str(SERVER_PORT), "--config", CONFIG_PATH],
+        [
+            "uv",
+            "run",
+            "golinks",
+            "run-server",
+            "--port",
+            str(SERVER_PORT),
+            "--config",
+            CONFIG_PATH,
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
