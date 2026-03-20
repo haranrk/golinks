@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Dict
 from urllib.parse import urlparse
@@ -76,6 +76,14 @@ class GoLinksHandler(BaseHTTPRequestHandler):
         """Handle GET requests."""
         # Try to load config first
         print(f"Handling GET request for {self.path}")
+
+        # Lightweight health check — no disk I/O or template rendering
+        if self.path == "/healthz":
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+            return
+
         try:
             config = self.config
         except (json.JSONDecodeError, FileNotFoundError, ValidationError) as e:
@@ -334,7 +342,7 @@ def run_server(host="127.0.0.1", port=8888, config_path=None):
         return GoLinksHandler(*args, config_path=config_path, **kwargs)
 
     # Create and start server
-    server = HTTPServer((host, port), handler_class)
+    server = ThreadingHTTPServer((host, port), handler_class)
     print(f"Go Links server running on http://{host}:{port}")
     print(
         f"Configuration file: {config_path or (Path.home() / '.golinks' / 'config.json')}"
