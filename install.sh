@@ -157,6 +157,7 @@ setup_launchagent() {
     <key>ProgramArguments</key>
     <array>
         <string>$GOLINKS_PATH</string>
+        <string>run-server</string>
         <string>--port</string>
         <string>8080</string>
         <string>--config</string>
@@ -227,15 +228,8 @@ load anchor "golinks" from "/etc/pf.anchors/golinks"
 
 # Start the service
 start_service() {
-    PLIST_FILE="$HOME/Library/LaunchAgents/com.user.golinks.plist"
-
     echo_info "Starting golinks service..."
-
-    # Unload if already loaded
-    launchctl unload "$PLIST_FILE" 2>/dev/null || true
-
-    # Load the service
-    launchctl load "$PLIST_FILE"
+    golinks start-service --port 8080 --config "$HOME/.config/golinks/config.json"
 
     # Wait for service to start
     echo_info "Waiting for service to start..."

@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -21,6 +22,11 @@ from src.stats import get_stats_path, increment_stat, load_stats
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / "com.user.golinks.plist"
 CONFIG_DIR = Path.home() / ".config" / "golinks"
 DEFAULT_CONFIG_PATH = CONFIG_DIR / "config.json"
+
+
+class ReuseAddressThreadingServer(ThreadingHTTPServer):
+    """Threading HTTP server that allows address reuse."""
+    allow_reuse_address = True
 
 
 class GoLinksHandler(BaseHTTPRequestHandler):
@@ -44,13 +50,6 @@ class GoLinksHandler(BaseHTTPRequestHandler):
     def get_config_path_display(self) -> str:
         """Get the config path as a string for display."""
         return str(self.config_path.absolute())
-        # try:
-        #     if self.config_path is None:
-        #         return "Not configured"
-        #     # Use absolute() instead of resolve() - resolve() can fail if file doesn't exist
-        #     return str(Path(self.config_path).absolute())
-        # except Exception:
-        #     return str(self.config_path) if self.config_path else "Unknown"
 
     @property
     def config(self):
@@ -75,7 +74,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests."""
         # Try to load config first
-        print(f"Handling GET request for {self.path}")
+        # print(f"Handling GET request for {self.path}")
 
         # Lightweight health check — no disk I/O or template rendering
         if self.path == "/healthz":
@@ -135,7 +134,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
                 else:
                     destination = template
             else:
-                self.show_error_page(path)
+                self.show_error_page(path, config)
                 return
 
             # Preserve query parameters
@@ -146,12 +145,7 @@ class GoLinksHandler(BaseHTTPRequestHandler):
             # Track visit
             increment_stat(self.stats_path, shortcut)
 
-            # Log the redirect
-            print(f"[{self.log_date_time_string()}] {self.path} -> {destination}")
-
-            # A 301 redirect is permanent, a 302 redirect is temporary. If we use a 301 redirect,
-            # the browser will cache the redirect and may not follow the redirect if the destination
-            # changes.
+            # Log the redirect is handled by log_message override
             # Perform 302 redirect
             self.send_response(302)
             self.send_header("Location", destination)
@@ -329,8 +323,8 @@ class GoLinksHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         """Override to customize logging."""
-        # Only log actual redirects and errors, not successful page loads
-        if args[1] in ["301", "404"]:
+        # Log redirects (302), permanent redirects (301), and errors (404, 500)
+        if args[1] in ["301", "302", "404", "500"]:
             sys.stderr.write(f"[{self.log_date_time_string()}] {format % args}\n")
 
 
@@ -341,13 +335,14 @@ def run_server(host="127.0.0.1", port=8888, config_path=None):
     def handler_class(*args, **kwargs):
         return GoLinksHandler(*args, config_path=config_path, **kwargs)
 
-    # Create and start server
-    server = ThreadingHTTPServer((host, port), handler_class)
-    print(f"Go Links server running on http://{host}:{port}")
+    # Create and start server using our custom class
+    server = ReuseAddressThreadingServer((host, port), handler_class)
+    print(f"Go Links server running on http://{host}:{port}", flush=True)
     print(
-        f"Configuration file: {config_path or (Path.home() / '.golinks' / 'config.json')}"
+        f"Configuration file: {config_path or (Path.home() / '.golinks' / 'config.json')}",
+        flush=True,
     )
-    print("Press Ctrl+C to stop")
+    print("Press Ctrl+C to stop", flush=True)
 
     try:
         server.serve_forever()
@@ -455,6 +450,16 @@ def cmd_start_service(args: argparse.Namespace) -> None:
 
     if result.returncode != 0:
         print(f"Error loading service: {result.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+    domain_target = f"gui/{os.getuid()}/com.user.golinks"
+    kickstart = subprocess.run(
+        ["launchctl", "kickstart", "-k", domain_target],
+        capture_output=True,
+        text=True,
+    )
+    if kickstart.returncode != 0:
+        print(f"Error starting service: {kickstart.stderr}", file=sys.stderr)
         sys.exit(1)
 
     print(f"Service started on port {args.port}")
