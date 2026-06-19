@@ -6,7 +6,7 @@ A simple local HTTP redirect service that turns short URLs like `go/github` into
 
 ### Install from pypi
 ```
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/haranrk/golinks/master/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/haranrk/golinks/main/install.sh)"
 ```
 
 ### Install from source
